@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Espace Confiote</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        .pixel-font {
+            font-family: 'Press Start 2P', 'Courier New', Courier, monospace !important;
+            letter-spacing: 1px;
+            text-shadow: 2px 2px 0 #000, 0 2px 0 #000, 2px 0 0 #000;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .game {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: start;
+            justify-content: center;
+            position: relative;
+        }
+
+        .game-container {
+            align-items: flex-start;
+            justify-content: flex-start;
+            position: relative;
+        }
+
+        #canvas {
+            border: 2px solid #333;
+            background: #000;
+            width: 1280px;
+            height: 720px;
+            display: none;
+        }
+
+        #canvas.active {
+            display: block;
+        }
+
+        .sidebar {
+            width: 400px;
+            min-width: 200px;
+            max-width: 90vw;
+            background: #16213e;
+            border-left: 2px solid #0f3460;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            height: 100%;
+            z-index: 2;
+            transition: box-shadow 0.2s;
+            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .resizer {
+            width: 8px;
+            cursor: ew-resize;
+            background: #0f3460;
+            position: absolute;
+            right: 400px;
+            top: 0;
+            bottom: 0;
+            z-index: 3;
+            transition: background 0.2s;
+        }
+
+        .resizer:hover, .resizer.active {
+            background: #4fc3f7;
+        }
+
+        .sidebar-header {
+            padding: 15px;
+            background: #0f3460;
+            border-bottom: 2px solid #0a0a1a;
+        }
+
+        .sidebar-header h2 {
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .code-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .code-section label {
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+
+        #pythonCode {
+            height: 350px;
+            width: 100%;
+            border: 1px solid #333;
+            border-radius: 4px;
+        }
+
+        #pythonCode, .CodeMirror {
+            transition: opacity 0.3s, cursor 0.3s;
+        }
+        #pythonCode.game-running, .CodeMirror.game-running {
+            opacity: 0.5 !important;
+            cursor: not-allowed !important;
+        }
+
+        .editor-title {
+            display: flex;
+            flex-direction: row;
+            align-items: start;
+        }
+
+        .CodeMirror {
+            height: 100% !important;
+            font-size: 13px;
+            background: #0a0a1a;
+            color: #0f0;
+        }
+
+        .CodeMirror.CodeMirror-readonly {
+            opacity: 0.6;
+        }
+
+        /* API Documentation Section */
+        .api-docs {
+            padding: 0 15px 10px 15px;
+            border-top: 1px solid #0a0a1a;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .api-docs-header {
+            padding: 10px 0;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .api-docs-header:hover {
+            color: #4fc3f7;
+        }
+
+        .api-docs-header h3 {
+            font-size: 13px;
+            color: #4fc3f7;
+        }
+
+        .api-docs-toggle {
+            font-size: 16px;
+            transition: transform 0.2s;
+        }
+
+        .api-docs-toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .api-docs-content {
+            display: none;
+            font-size: 11px;
+            line-height: 1.5;
+            color: #bbb;
+        }
+
+        .api-docs-content.expanded {
+            display: block;
+        }
+
+        .api-docs-content h4 {
+            color: #81d4fa;
+            margin-top: 10px;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+
+        .api-docs-content code {
+            background: #0a0a1a;
+            padding: 2px 5px;
+            border-radius: 3px;
+            color: #4fc3f7;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+        }
+
+        .api-docs-content ul {
+            margin-left: 15px;
+            margin-top: 5px;
+        }
+
+        .api-docs-content li {
+            margin-bottom: 5px;
+        }
+
+        .api-docs-content .param {
+            color: #ffb74d;
+        }
+
+        .api-docs-content .type {
+            color: #9575cd;
+            font-style: italic;
+        }
+
+        .button-group {
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            border-top: 2px solid #0a0a1a;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            background: #0f3460;
+            color: #eee;
+            border: 1px solid #4fc3f7;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #1a4a7a;
+            border-color: #81d4fa;
+        }
+
+        button:active {
+            background: #0a2a4a;
+        }
+
+        button:disabled {
+            background: #333;
+            border-color: #666;
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        button.stop-btn {
+            background: #c62828;
+            border-color: #ef5350;
+        }
+
+        button.stop-btn:hover {
+            background: #e53935;
+            border-color: #ef5350;
+        }
+
+        .status {
+            padding: 10px 15px;
+            background: #0a0a1a;
+            border-top: 2px solid #0a0a1a;
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .status.error {
+            color: #f44336;
+        }
+
+        .status.success {
+            color: #4caf50;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border-radius: 10px;
+        }
+
+        .loading h2 {
+            margin-bottom: 20px;
+            color: #4fc3f7;
+        }
+
+        .spinner {
+            border: 4px solid #333;
+            border-top: 4px solid #4fc3f7;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .welcome-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #4fc3f7;
+            max-width: 600px;
+            padding: 40px;
+            display: none;
+        }
+
+        .welcome-screen h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .welcome-screen p {
+            font-size: 18px;
+            color: #aaa;
+            line-height: 1.6;
+        }
+
+        /* Prominent Pyodide Loading Screen */
+        .pyodide-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 999;
+            background: rgba(10, 10, 26, 0.95);
+            padding: 60px 80px;
+            border-radius: 20px;
+            border: 3px solid #4fc3f7;
+            box-shadow: 0 0 40px rgba(79, 195, 247, 0.4);
+            min-width: 400px;
+        }
+
+        .pyodide-loading h1 {
+            font-size: 42px;
+            margin-bottom: 15px;
+            color: #4fc3f7;
+            text-shadow: 0 0 10px rgba(79, 195, 247, 0.5);
+        }
+
+        .pyodide-loading p {
+            font-size: 18px;
+            color: #aaa;
+            margin-bottom: 35px;
+        }
+
+        .big-spinner {
+            border: 8px solid #333;
+            border-top: 8px solid #4fc3f7;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="game-container" style="align-items: flex-start; justify-content: flex-start;">
+        <!-- Prominent Pyodide Loading Screen -->
+        <div id="pyodideLoading" class="pyodide-loading">
+            <h1 class="pixel-font">🐍 Loading Python</h1>
+            <p>Initializing Pyodide runtime...</p>
+            <div class="big-spinner"></div>
+        </div>
+
+        <!-- Game Loading (for Emscripten) -->
+        <div id="loading" class="loading" style="display: none;">
+            <h2>Loading Game...</h2>
+            <div class="spinner"></div>
+        </div>
+
+        <!-- Welcome Screen (shown after Pyodide loads) -->
+        <div id="welcome" class="welcome-screen">
+            <h1 class="pixel-font">🚀 Espace Confiote</h1>
+            <p>Write your Python AI code in the editor, then click "Start Game" to begin!</p>
+        </div>
+
+        <div class="game">
+            <h1 class="pixel-font" style="margin: 16px 0 0 16px; text-align: left;">Espace Confiote</h1>
+            <canvas id="canvas"></canvas>
+        </div>
+    </div>
+    <div class="resizer" id="resizer"></div>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2 class="editor-title">
+                <img src="https://s3.dualstack.us-east-2.amazonaws.com/pythondotorg-assets/media/community/logos/python-logo-only.png"
+                     style="max-height: 3rem; margin-right: 1rem;">
+                <span class="pixel-font" style="margin-bottom: auto; margin-top: 0;">Your vessel's algorithm</span>
+            </h2>
+            <p style="font-size: 12px; color: #aaa;">Write the code for your space vessel to follow and hit "Start
+                Game"!</p>
+        </div>
+        <div class="sidebar-content">
+            <div class="code-section">
+                <label for="pythonCode">Your AI Code:</label>
+                <div id="pythonCode"></div>
+            </div>
+
+            <!-- API Documentation -->
+            <div class="api-docs">
+                <div class="api-docs-header" onclick="toggleApiDocs()">
+                    <h3>📚 API Reference</h3>
+                    <span class="api-docs-toggle collapsed">▼</span>
+                </div>
+                <div id="apiDocsContent" class="api-docs-content">
+                    <h4>Available Functions:</h4>
+                    <ul>
+                        <li><code>player.shoot(<span class="param">direction</span>)</code> - Fire a projectile
+                            <br><span class="param">direction</span>: <span class="type">int</span> - 0 (forward), 1
+                            (left), 2 (right)
+                        </li>
+                        <li><code>player.set_thrusters(<span class="param">left_power</span>, <span class="param">right_power</span>)</code>
+                            - Control movement
+                            <br><span class="param">left_power</span>, <span class="param">right_power</span>: <span
+                                    class="type">float</span> - Range: -1.0 to 1.0
+                        </li>
+                        <li><code>print(<span class="param">message</span>)</code> - Output to browser console</li>
+                    </ul>
+
+                    <h4>Context Object (passed to on_player_update):</h4>
+                    <ul>
+                        <li><code>context["playerPosition"]</code> - <span class="type">dict</span> with
+                            <code>"x"</code> and <code>"y"</code></li>
+                        <li><code>context["playerVelocity"]</code> - <span class="type">dict</span> with
+                            <code>"x"</code> and <code>"y"</code></li>
+                        <li><code>context["playerRotation"]</code> - <span class="type">float</span> - Rotation angle in
+                            degrees
+                        </li>
+                        <li><code>context["deltaTime"]</code> - <span class="type">float</span> - Time since last frame
+                            (seconds)
+                        </li>
+                        <li><code>context["visibleMonsterCount"]</code> - <span class="type">int</span> - Number of
+                            visible monsters
+                        </li>
+                        <li><code>context["visibleMonsters"]</code> - <span class="type">list</span> - Array of monster
+                            objects
+                        </li>
+                    </ul>
+
+                    <h4>Monster Object Properties:</h4>
+                    <ul>
+                        <li><code>monster["position"]</code> - <span class="type">dict</span> with <code>"x"</code> and
+                            <code>"y"</code></li>
+                        <li><code>monster["size"]</code> - <span class="type">float</span> - Monster size/radius</li>
+                        <li><code>monster["health"]</code> - <span class="type">float</span> - Current health (0-100)
+                        </li>
+                        <li><code>monster["invincible"]</code> - <span class="type">bool</span> - Whether monster is
+                            invincible
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button id="startBtn" onclick="startGame()" disabled>Start Game</button>
+                <button id="stopBtn" onclick="stopGame()" style="display: none;" class="stop-btn">Stop Game</button>
+            </div>
+            <div id="status" class="status">Loading Pyodide...</div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/display/placeholder.min.js"></script>
+
+<script>
+    // Capture keyboard events in the CAPTURE phase (before Emscripten)
+    document.addEventListener('keydown', function (e) {
+        if (document.querySelector('.CodeMirror-focused')) {
+            if (
+                // Select all
+                ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) ||
+                // Copy, Cut, Paste
+                ((e.ctrlKey || e.metaKey) && ['c', 'C', 'x', 'X', 'v', 'V'].includes(e.key)) ||
+                // Undo/Redo
+                ((e.ctrlKey || e.metaKey) && ['z', 'Z', 'y', 'Y'].includes(e.key)) ||
+                // Save
+                ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) ||
+                // Find, Replace
+                ((e.ctrlKey || e.metaKey) && ['f', 'F', 'h', 'H'].includes(e.key)) ||
+                // Navigation keys
+                [
+                    'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+                    'Home', 'End', 'PageUp', 'PageDown',
+                    'Tab', 'Backspace', 'Delete', 'Insert',
+                    'Escape', 'Enter'
+                ].includes(e.key) ||
+                // Shift+Tab (unindent)
+                (e.key === 'Tab' && e.shiftKey)
+            ) {
+                return;
+            }
+            e.stopPropagation();
+            return;
+        }
+    }, true);
+
+    document.addEventListener('keyup', function (e) {
+        if (document.querySelector('.CodeMirror-focused')) {
+            e.stopPropagation();
+        }
+    }, true);
+
+    document.addEventListener('keypress', function (e) {
+        if (document.querySelector('.CodeMirror-focused')) {
+            e.stopPropagation();
+        }
+    }, true);
+
+    let codeMirrorEditor = null;
+    let pyodide = null;
+    let pythonCodeLoaded = false;
+    let gameReady = false;
+    let gameRunning = false;
+    let emscriptenLoaded = false;
+
+    const defaultPythonCode = `import player_ai_c as player
+import math
+
+def on_player_update(context):
+    pass
+`;
+
+    // Load code from localStorage or use default
+    function loadCodeFromStorage() {
+        const savedCode = localStorage.getItem('espaceConfioteCode');
+        return savedCode || defaultPythonCode;
+    }
+
+    // Save code to localStorage
+    function saveCodeToStorage(code) {
+        localStorage.setItem('espaceConfioteCode', code);
+    }
+
+    function updateStatus(message, type) {
+        const el = document.getElementById('status');
+        if (el) {
+            el.textContent = message;
+            el.className = 'status ' + (type || '');
+        }
+    }
+
+    // Toggle API documentation
+    function toggleApiDocs() {
+        const content = document.getElementById('apiDocsContent');
+        const toggle = document.querySelector('.api-docs-toggle');
+
+        if (content.classList.contains('expanded')) {
+            content.classList.remove('expanded');
+            toggle.classList.add('collapsed');
+        } else {
+            content.classList.add('expanded');
+            toggle.classList.remove('collapsed');
+        }
+    }
+
+    // START PRELOADING PYODIDE IMMEDIATELY (before DOM is ready)
+    // console.log('[Pyodide] Starting preload...');
+    let pyodideLoadPromise = (async function () {
+        try {
+            updateStatus('Loading Pyodide...', '');
+            pyodide = await loadPyodide();
+
+            // Bind Python print to console.log
+            pyodide.runPython(`
+import sys
+import js
+from types import ModuleType
+
+# Redirect Python print to JavaScript console.log
+class JSConsole:
+    def write(self, text):
+        if text and text.strip():
+            js.console.log(text.rstrip())
+    def flush(self):
+        pass
+
+sys.stdout = JSConsole()
+sys.stderr = JSConsole()
+
+# Create player_ai_c module
+player_ai_c_module = ModuleType('player_ai_c')
+def shoot(direction): js.shoot(direction)
+def set_thrusters(left_power, right_power): js.setThrusters(left_power, right_power)
+player_ai_c_module.shoot = shoot
+player_ai_c_module.set_thrusters = set_thrusters
+sys.modules['player_ai_c'] = player_ai_c_module
+                `);
+
+            // Hide Pyodide loading screen and show welcome screen
+            document.getElementById('pyodideLoading').style.display = 'none';
+            document.getElementById('welcome').style.display = 'block';
+            document.getElementById('startBtn').disabled = false;
+
+            updateStatus('Ready! Write your code and start the game.', 'success');
+            return true;
+        } catch (error) {
+            updateStatus('Error loading Pyodide: ' + error.message, 'error');
+            console.error('[Pyodide] Error:', error);
+
+            const loadingEl = document.getElementById('pyodideLoading');
+            if (loadingEl) {
+                loadingEl.innerHTML = `
+                        <h1 style="color: #f44336;">❌ Loading Failed</h1>
+                        <p style="color: #f44336;">Could not load Pyodide: ${error.message}</p>
+                        <button onclick="location.reload()" style="margin-top: 20px; padding: 12px 24px; background: #c62828; color: white; border: none; border-radius: 4px; cursor: pointer;">Retry</button>
+                    `;
+            }
+            return false;
+        }
+    })();
+
+    window.addEventListener('DOMContentLoaded', function () {
+        const initialCode = loadCodeFromStorage();
+        codeMirrorEditor = CodeMirror(document.getElementById('pythonCode'), {
+            value: initialCode,
+            mode: 'python',
+            theme: 'material-darker',
+            lineNumbers: true,
+            autoCloseBrackets: true,
+            tabSize: 4,
+            indentUnit: 4,
+            indentWithTabs: false,
+            lineWrapping: true,
+            placeholder: 'Write your Python AI code here...'
+        });
+        codeMirrorEditor.setSize('100%', '100%');
+        console.log('[CodeMirror] Editor initialized');
+    });
+
+    // Module configuration - don't auto-start the game loop
+    var Module = {
+        canvas: document.getElementById('canvas'),
+        preRun: [],
+        postRun: [function () {
+            console.log('[Game] PostRun - checking resources...');
+            try {
+                const files = FS.readdir('/resources');
+                console.log('[Game] Resources loaded:', files);
+            } catch (e) {
+                console.error('[Game] Resources error:', e);
+            }
+        }],
+        onRuntimeInitialized: function () {
+            gameReady = true;
+            emscriptenLoaded = true;
+        },
+        print: function (text) {
+            console.log('[Game]', text);
+        },
+        printErr: function (text) {
+            console.error('[Game Error]', text);
+        },
+        doNotCaptureKeyboard: true,
+        noInitialRun: false
+    };
+
+    window.shoot = function (direction) {
+        if (!gameRunning) return;
+        if (Module && Module.ccall) {
+            try {
+                Module.ccall('web_player_shoot', null, ['number'], [direction]);
+            } catch (e) {
+                console.error('[Bridge] shoot error:', e);
+            }
+        }
+    };
+
+    window.setThrusters = function (left, right) {
+        if (!gameRunning) return;
+        if (Module && Module.ccall) {
+            try {
+                Module.ccall('web_player_set_thrusters', null, ['number', 'number'], [left, right]);
+            } catch (e) {
+                console.error('[Bridge] setThrusters error:', e);
+            }
+        }
+    };
+
+    window.callPythonUpdate = function (contextJson) {
+        if (!pythonCodeLoaded || !pyodide || !gameRunning) return;
+        try {
+            const context = JSON.parse(contextJson);
+            const contextPy = pyodide.toPy({
+                playerPosition: context.playerPosition,
+                playerVelocity: context.playerVelocity,
+                playerRotation: context.playerRotation,
+                deltaTime: context.deltaTime,
+                visibleMonsterCount: context.visibleMonsterCount,
+                visibleMonsters: context.visibleMonsters
+            });
+            const onUpdate = pyodide.globals.get('on_player_update');
+            if (onUpdate) onUpdate(contextPy);
+        } catch (error) {
+            updateStatus('Python error: ' + error.message, 'error');
+            console.error('Python update error:', error);
+        }
+    };
+
+    async function startGame() {
+        // Wait for Pyodide to finish loading if it hasn't yet
+        if (!pyodide) {
+            updateStatus('Waiting for Pyodide to load...', '');
+            await pyodideLoadPromise;
+        }
+
+        if (!pyodide) {
+            updateStatus('Failed to load Pyodide', 'error');
+            return;
+        }
+
+        const code = codeMirrorEditor ? codeMirrorEditor.getValue() : defaultPythonCode;
+
+        // Save code to localStorage
+        saveCodeToStorage(code);
+
+        try {
+            updateStatus('Loading Python code...', '');
+
+            // Load and validate Python code
+            pyodide.runPython(code);
+            const hasFunc = pyodide.runPython(`'on_player_update' in globals() and callable(on_player_update)`);
+            if (!hasFunc) {
+                throw new Error('Code must define on_player_update(context) function');
+            }
+
+            pythonCodeLoaded = true;
+
+            // Make editor readonly
+            codeMirrorEditor.setOption('readOnly', true);
+
+            // Darken the background
+            document.getElementById('pythonCode').classList.add('game-running');
+            if (codeMirrorEditor.getWrapperElement) {
+                codeMirrorEditor.getWrapperElement().classList.add('game-running');
+            }
+
+            // Update UI
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'block';
+            document.getElementById('welcome').style.display = 'none';
+            document.getElementById('canvas').classList.add('active');
+
+            // Load Emscripten game if not already loaded
+            if (!emscriptenLoaded) {
+                document.getElementById('loading').style.display = 'block';
+                updateStatus('Loading game engine...', '');
+
+                // Dynamically load the game script
+                const script = document.createElement('script');
+                script.src = 'espace-confiote.js';
+                script.onload = function () {
+                    console.log('[Game] Emscripten loaded');
+                    document.getElementById('loading').style.display = 'none';
+                    gameRunning = true;
+                    updateStatus('Game running!', 'success');
+                };
+                script.onerror = function () {
+                    updateStatus('Failed to load game engine', 'error');
+                    stopGame();
+                };
+                document.body.appendChild(script);
+            } else {
+                // Game already loaded, just start it
+                gameRunning = true;
+                updateStatus('Game running!', 'success');
+            }
+
+        } catch (error) {
+            updateStatus('Python error: ' + error.message, 'error');
+            console.error('Python code error:', error);
+        }
+    }
+
+    function stopGame() {
+        document.getElementById('pythonCode').classList.remove('game-running');
+        if (codeMirrorEditor.getWrapperElement) {
+            codeMirrorEditor.getWrapperElement().classList.remove('game-running');
+        }
+
+        gameRunning = false;
+        pythonCodeLoaded = false;
+
+        // Make editor editable again
+        codeMirrorEditor.setOption('readOnly', false);
+
+        // Update UI
+        document.getElementById('startBtn').style.display = 'block';
+        document.getElementById('stopBtn').style.display = 'none';
+        document.getElementById('welcome').style.display = 'block';
+        document.getElementById('canvas').classList.remove('active');
+
+        updateStatus('Game stopped. Edit your code and restart when ready.', '');
+
+        // Reload page to reset game state
+        setTimeout(() => {
+            location.reload();
+        }, 100);
+    }
+
+    (function () {
+        const resizer = document.getElementById('resizer');
+        const sidebar = document.getElementById('sidebar');
+        let dragging = false;
+        let startX = 0;
+        let startWidth = 0;
+
+        resizer.addEventListener('mousedown', function (e) {
+            dragging = true;
+            startX = e.clientX;
+            startWidth = sidebar.offsetWidth;
+            resizer.classList.add('active');
+            document.body.style.cursor = 'ew-resize';
+            document.body.style.userSelect = 'none';
+        });
+
+        document.addEventListener('mousemove', function (e) {
+            if (!dragging) return;
+            let dx = startX - e.clientX;
+            let newWidth = Math.min(Math.max(startWidth + dx, 200), window.innerWidth * 0.9);
+            sidebar.style.width = newWidth + 'px';
+            resizer.style.right = newWidth + 'px';
+        });
+
+        document.addEventListener('mouseup', function () {
+            if (dragging) {
+                dragging = false;
+                resizer.classList.remove('active');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+
+        // On window resize, keep resizer in sync
+        window.addEventListener('resize', function () {
+            const width = sidebar.offsetWidth;
+            resizer.style.right = width + 'px';
+        });
+        // Initial position
+        resizer.style.right = sidebar.offsetWidth + 'px';
+    })();
+</script>
+</body>
+</html>
+
