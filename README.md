@@ -199,7 +199,3 @@ The web build uses:
 - **JavaScript Bridge**: Connects C game code with Python execution
 
 Users can write Python code directly in the browser's text editor and load it dynamically without page refresh.
-
-## License
-
-[Add your license here]
