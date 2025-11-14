@@ -79,7 +79,7 @@ target("espace-confiote", function()
         
         local ai_backend = get_config("ai_backend")
 
-        add_files("src/player_ai_backend/player_a_ci.c")
+        add_files("src/player_ai_backend/player_ai_c.c")
         add_defines("USE_C_AI")
 
         set_targetdir("$(projectdir)/build")
